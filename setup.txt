@@ -1,0 +1,345 @@
+=================================================================
+  PYTHON CI/CD — COMPLETE HANDS-ON GUIDE (Copy-Paste Ready)
+=================================================================
+
+WHAT YOU'LL HAVE AT THE END:
+  - Flask website running on your server
+  - Every git push → tests run automatically
+  - If tests pass → auto-deploy to server
+  - If tests fail → deploy stops
+
+REQUIREMENTS:
+  - A GitHub account
+  - A Linux server (Ubuntu) with SSH access
+  - Python 3.x on your local machine
+
+=================================================================
+PHASE 1 — LOCAL MACHINE (your laptop/PC)
+=================================================================
+
+── STEP 1: Create project folder ─────────────────────────────
+
+  mkdir my-python-site
+  cd my-python-site
+  mkdir tests
+  mkdir -p .github/workflows
+
+
+── STEP 2: Create app.py ─────────────────────────────────────
+
+  Create file: app.py
+  -------------------------------------------------------
+  from flask import Flask
+
+  app = Flask(__name__)
+
+  @app.route('/')
+  def home():
+      return '<h1>Hello from CI/CD!</h1>'
+
+  @app.route('/health')
+  def health():
+      return {'status': 'ok'}, 200
+
+  if __name__ == '__main__':
+      app.run(host='0.0.0.0', port=5000)
+  -------------------------------------------------------
+
+
+── STEP 3: Create requirements.txt ───────────────────────────
+
+  Create file: requirements.txt
+  -------------------------------------------------------
+  flask==3.0.3
+  gunicorn==22.0.0
+  -------------------------------------------------------
+
+
+── STEP 4: Create requirements-dev.txt ───────────────────────
+
+  Create file: requirements-dev.txt
+  -------------------------------------------------------
+  -r requirements.txt
+  pytest==8.2.0
+  pytest-cov==5.0.0
+  -------------------------------------------------------
+
+
+── STEP 5: Create tests/test_app.py ──────────────────────────
+
+  Create file: tests/test_app.py
+  -------------------------------------------------------
+  import pytest
+  from app import app
+
+  @pytest.fixture
+  def client():
+      app.config['TESTING'] = True
+      with app.test_client() as client:
+          yield client
+
+  def test_home_returns_200(client):
+      response = client.get('/')
+      assert response.status_code == 200
+
+  def test_health_check(client):
+      response = client.get('/health')
+      assert response.status_code == 200
+      assert response.json['status'] == 'ok'
+  -------------------------------------------------------
+
+
+── STEP 6: Create .gitignore ─────────────────────────────────
+
+  Create file: .gitignore
+  -------------------------------------------------------
+  __pycache__/
+  *.pyc
+  .env
+  .venv/
+  venv/
+  .pytest_cache/
+  htmlcov/
+  .coverage
+  -------------------------------------------------------
+
+
+── STEP 7: Create .github/workflows/cicd.yml ─────────────────
+
+  Create file: .github/workflows/cicd.yml
+  -------------------------------------------------------
+  name: Python CI/CD
+
+  on:
+    push:
+      branches: [main]
+    pull_request:
+      branches: [main]
+
+  jobs:
+
+    test:
+      name: Run Tests
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        - name: Set up Python 3.12
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.12"
+
+        - name: Cache pip packages
+          uses: actions/cache@v4
+          with:
+            path: ~/.cache/pip
+            key: pip-${{ hashFiles('requirements*.txt') }}
+            restore-keys: pip-
+
+        - name: Install dependencies
+          run: pip install -r requirements-dev.txt
+
+        - name: Run tests
+          run: pytest tests/ -v --cov=. --cov-report=term
+
+    deploy:
+      name: Deploy to Server
+      runs-on: ubuntu-latest
+      needs: test
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        - name: Setup SSH key
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+        - name: Deploy via SSH
+          run: |
+            ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
+              set -e
+              cd ${{ secrets.DEPLOY_PATH }}
+              git pull origin main
+              pip install -r requirements.txt
+              sudo systemctl restart myapp
+              sleep 3
+              curl --fail http://localhost:8000/health && echo "Deploy successful!"
+            ENDSSH
+  -------------------------------------------------------
+
+
+── STEP 8: Test locally first ────────────────────────────────
+
+  # Install Python deps locally
+  pip install -r requirements-dev.txt
+
+  # Run tests — should show 2 passed
+  pytest tests/ -v
+
+  # Run app locally to verify
+  python app.py
+  # Visit: http://localhost:5000
+
+
+── STEP 9: Push to GitHub ────────────────────────────────────
+
+  # First: Create a new repo on github.com (name: my-python-site)
+  # Then run these:
+
+  git init
+  git add .
+  git commit -m "feat: initial flask app with CI/CD pipeline"
+  git branch -M main
+  git remote add origin https://github.com/YOUR_USERNAME/my-python-site.git
+  git push -u origin main
+
+
+=================================================================
+PHASE 2 — GITHUB SECRETS SETUP
+=================================================================
+
+Go to: github.com → your repo → Settings → Secrets and variables
+       → Actions → New repository secret
+
+Add these 4 secrets:
+
+  Name: DEPLOY_HOST
+  Value: 192.168.x.x         ← your server's IP address
+
+  Name: DEPLOY_USER
+  Value: ubuntu               ← your SSH username
+
+  Name: DEPLOY_PATH
+  Value: /var/www/my-python-site
+
+  Name: DEPLOY_SSH_KEY
+  Value: (paste your PRIVATE key — the one starting with -----BEGIN)
+
+To generate SSH key (run on your local machine):
+  ssh-keygen -t ed25519 -C "github-deploy-key" -f ~/.ssh/github_deploy
+  # Private key → paste as DEPLOY_SSH_KEY secret
+  # Public key → add to server's ~/.ssh/authorized_keys
+
+
+=================================================================
+PHASE 3 — SERVER SETUP (run on your server — ONE TIME ONLY)
+=================================================================
+
+  # SSH into your server first:
+  ssh ubuntu@YOUR_SERVER_IP
+
+  # Install required packages
+  sudo apt update && sudo apt install -y python3 python3-pip git
+
+  # Create app directory
+  sudo mkdir -p /var/www/my-python-site
+  sudo chown -R ubuntu:ubuntu /var/www/my-python-site
+
+  # Clone your repo
+  git clone https://github.com/YOUR_USERNAME/my-python-site.git /var/www/my-python-site
+
+  # Install Python dependencies
+  cd /var/www/my-python-site
+  pip3 install -r requirements.txt
+
+  # Create systemd service file
+  sudo nano /etc/systemd/system/myapp.service
+
+    [Unit]
+    Description=My Python Flask App
+    After=network.target
+
+    [Service]
+    User=ubuntu
+    WorkingDirectory=/var/www/my-python-site
+    ExecStart=/usr/local/bin/gunicorn -w 2 -b 0.0.0.0:8000 app:app
+    Restart=always
+    RestartSec=3
+
+    [Install]
+    WantedBy=multi-user.target
+
+  # Enable and start the service
+  sudo systemctl daemon-reload
+  sudo systemctl enable myapp
+  sudo systemctl start myapp
+
+  # Verify it's running
+  sudo systemctl status myapp
+  curl http://localhost:8000
+  curl http://localhost:8000/health
+
+
+=================================================================
+PHASE 4 — TRIGGER & VERIFY THE PIPELINE
+=================================================================
+
+── Trigger a deploy ──────────────────────────────────────────
+
+  # Make any small change on your local machine:
+  echo "# My Python CI/CD Site" > README.md
+  git add .
+  git commit -m "docs: add readme to trigger pipeline"
+  git push origin main
+
+  # Go to GitHub → Actions tab → watch it run live
+
+
+── Verify pipeline passed ────────────────────────────────────
+
+  # On your server:
+  curl http://YOUR_SERVER_IP:8000
+  curl http://YOUR_SERVER_IP:8000/health
+
+
+── TEST: Intentionally break it (important exercise!) ────────
+
+  # In tests/test_app.py, change this:
+  assert response.status_code == 200
+  # to this:
+  assert response.status_code == 999   ← wrong value
+
+  git add . && git commit -m "test: breaking test" && git push
+
+  # Pipeline should go RED and deploy should NOT happen.
+  # This proves your CI/CD is working correctly.
+
+  # Fix it back:
+  assert response.status_code == 200
+  git add . && git commit -m "fix: restore correct assertion" && git push
+
+
+=================================================================
+YOUR FINAL FOLDER STRUCTURE
+=================================================================
+
+  my-python-site/
+  ├── app.py
+  ├── requirements.txt
+  ├── requirements-dev.txt
+  ├── .gitignore
+  ├── tests/
+  │   └── test_app.py
+  └── .github/
+      └── workflows/
+          └── cicd.yml
+
+
+=================================================================
+QUICK REFERENCE — COMMANDS YOU'LL USE OFTEN
+=================================================================
+
+  pytest tests/ -v                    ← run tests locally
+  pytest tests/ --cov=. --cov-report=term   ← with coverage
+  git push origin main                ← triggers pipeline
+  sudo systemctl status myapp         ← check app on server
+  sudo systemctl restart myapp        ← restart app on server
+  sudo journalctl -u myapp -f         ← live logs on server
+  curl http://localhost:8000/health   ← quick health check
+
+=================================================================
