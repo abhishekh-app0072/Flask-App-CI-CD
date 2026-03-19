@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEXUS — Remote Control Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg-base: #080c14;
+    --bg-panel: #0d1320;
+    --bg-card: #111827;
+    --bg-card-hover: #16213a;
+    --bg-sidebar: #0a0f1c;
+    --border: #1e2d4a;
+    --border-light: #253550;
+    --accent: #00d4ff;
+    --accent-dim: rgba(0, 212, 255, 0.12);
+    --accent-glow: rgba(0, 212, 255, 0.35);
+    --green: #00e676;
+    --green-dim: rgba(0, 230, 118, 0.12);
+    --red: #ff4d6a;
+    --red-dim: rgba(255, 77, 106, 0.12);
+    --yellow: #ffd700;
+    --yellow-dim: rgba(255, 215, 0, 0.12);
+    --purple: #b388ff;
+    --text-primary: #e8f0fe;
+    --text-secondary: #7a9bc7;
+    --text-muted: #3d5470;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --sidebar-w: 220px;
+    --topbar-h: 58px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ═══ TOPBAR ═══ */
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px 0 0;
+    gap: 0;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .topbar-logo {
+    width: var(--sidebar-w);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+  }
+  .logo-icon {
+    width: 30px; height: 30px;
+    border: 2px solid var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 12px var(--accent-glow);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .logo-icon::before {
+    content: '';
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 3px;
+  }
+  .logo-sub {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    display: block;
+    margin-top: 1px;
+  }
+  .topbar-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 360px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+  }
+  .search-input {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 8px 36px;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .topbar-stats {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+    border: 1px solid;
+  }
+  .stat-pill.online { background: var(--green-dim); border-color: rgba(0,230,118,0.3); color: var(--green); }
+  .stat-pill.busy { background: var(--yellow-dim); border-color: rgba(255,215,0,0.3); color: var(--yellow); }
+  .stat-pill.offline { background: var(--red-dim); border-color: rgba(255,77,106,0.3); color: var(--red); }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .stat-dot.pulse { animation: pulse 1.6s infinite; }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
+    height: 100%;
+  }
+  .admin-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(179,136,255,0.12);
+    border: 1px solid rgba(179,136,255,0.3);
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--purple);
+    letter-spacing: 1px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), #0080ff);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+
+  /* ═══ LAYOUT ═══ */
+  .layout {
+    display: flex;
+    margin-top: var(--topbar-h);
+    height: calc(100vh - var(--topbar-h));
+    overflow: hidden;
+  }
+
+  /* ═══ SIDEBAR ═══ */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 16px 0;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .nav-section-label {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    padding: 14px 20px 6px;
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border-left: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    position: relative;
+    user-select: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--bg-base);
+    font-size: 9px;
+    font-family: var(--mono);
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .nav-badge.red { background: var(--red); }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .user-card-info { flex: 1; min-width: 0; }
+  .user-card-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-card-role { font-size: 10px; color: var(--purple); font-family: var(--mono); }
+
+  /* ═══ MAIN ═══ */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg-base);
+    position: relative;
+  }
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* background grid pattern */
+  .main::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+  }
+  .page-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+    font-family: var(--sans);
+    text-decoration: none;
+  }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover { border-color: var(--border-light); color: var(--text-primary); background: var(--bg-card); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-base);
+    font-weight: 700;
+  }
+  .btn-primary:hover { box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-1px); }
+
+  /* View toggle */
+  .view-toggle {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .view-btn {
+    padding: 7px 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+  }
+  .view-btn:hover { color: var(--text-secondary); }
+  .view-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .view-btn svg { width: 14px; height: 14px; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-chip {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .filter-chip:hover { border-color: var(--border-light); color: var(--text-primary); }
+  .filter-chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .filter-chip.green { background: var(--green-dim); border-color: rgba(0,230,118,0.3); color: var(--green); }
+  .filter-chip.yellow { background: var(--yellow-dim); border-color: rgba(255,215,0,0.3); color: var(--yellow); }
+  .filter-chip.red { background: var(--red-dim); border-color: rgba(255,77,106,0.3); color: var(--red); }
+
+  .filter-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+
+  /* ═══ PC GRID ═══ */
+  .pc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .pc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+  }
+  .pc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.02), transparent);
+    pointer-events: none;
+  }
+  .pc-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-light);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .pc-card.online:hover { border-color: rgba(0,230,118,0.4); box-shadow: 0 8px 24px rgba(0,230,118,0.1); }
+  .pc-card.busy:hover { border-color: rgba(255,215,0,0.4); box-shadow: 0 8px 24px rgba(255,215,0,0.08); }
+  .pc-card.session-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-dim), 0 0 16px var(--accent-glow);
+    animation: glow-pulse 2s infinite;
+  }
+  @keyframes glow-pulse {
+    0%,100% { box-shadow: 0 0 0 1px var(--accent-dim), 0 0 16px var(--accent-glow); }
+    50% { box-shadow: 0 0 0 1px var(--accent-dim), 0 0 28px rgba(0,212,255,0.5); }
+  }
+  .pc-card.offline { opacity: 0.55; }
+
+  .pc-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .pc-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pc-status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .pc-status-dot.busy { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: pulse 1.5s infinite; }
+  .pc-status-dot.offline { background: var(--text-muted); }
+  .pc-status-dot.session { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1.2s infinite; }
+
+  .pc-actions-icon {
+    color: var(--text-muted);
+    width: 14px; height: 14px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .pc-card:hover .pc-actions-icon { opacity: 1; }
+
+  .pc-icon {
+    width: 38px; height: 28px;
+    margin: 0 auto 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pc-screen {
+    width: 38px; height: 22px;
+    background: var(--bg-panel);
+    border: 1.5px solid var(--border-light);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s;
+  }
+  .pc-card.online .pc-screen { border-color: rgba(0,230,118,0.4); }
+  .pc-card.session-active .pc-screen { border-color: var(--accent); }
+  .pc-screen-glow {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .pc-card.online .pc-screen-glow { background: radial-gradient(ellipse at center, rgba(0,230,118,0.15), transparent 70%); opacity: 1; }
+  .pc-card.session-active .pc-screen-glow { background: radial-gradient(ellipse at center, rgba(0,212,255,0.2), transparent 70%); opacity: 1; }
+  .pc-screen-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 60%;
+    position: relative;
+    z-index: 1;
+  }
+  .pc-screen-line { height: 1.5px; border-radius: 1px; background: var(--text-muted); opacity: 0.4; }
+  .pc-screen-line:nth-child(1) { width: 100%; }
+  .pc-screen-line:nth-child(2) { width: 70%; }
+  .pc-screen-line:nth-child(3) { width: 85%; }
+  .pc-card.online .pc-screen-line { background: var(--green); opacity: 0.6; }
+  .pc-card.session-active .pc-screen-line { background: var(--accent); opacity: 0.8; }
+  .pc-stand {
+    width: 12px; height: 4px;
+    background: var(--border-light);
+    border-radius: 0 0 2px 2px;
+    margin-top: 1px;
+  }
+
+  .pc-number {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .pc-user {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pc-tag {
+    display: inline-block;
+    font-size: 8px;
+    font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    width: 100%;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+  .pc-tag.session { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0,212,255,0.25); }
+  .pc-tag.online { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+  .pc-tag.busy { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,215,0,0.2); }
+  .pc-tag.offline { background: rgba(255,255,255,0.04); color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* ═══ RIGHT PANEL ═══ */
+  .right-panel {
+    width: 280px;
+    background: var(--bg-sidebar);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .rp-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rp-title {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .rp-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .rp-body::-webkit-scrollbar { width: 4px; }
+  .rp-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Session card in right panel */
+  .session-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .session-card.active { border-color: var(--accent); }
+  .session-card.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+  .session-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .session-pc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+  .session-duration {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .session-info { font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; }
+  .session-info span { color: var(--text-primary); }
+  .disconnect-btn {
+    width: 100%;
+    padding: 7px;
+    background: var(--red-dim);
+    border: 1px solid rgba(255,77,106,0.3);
+    border-radius: 6px;
+    color: var(--red);
+    font-size: 11px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .disconnect-btn:hover { background: rgba(255,77,106,0.25); box-shadow: 0 0 10px rgba(255,77,106,0.2); }
+
+  .rp-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 160px;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--mono);
+    text-align: center;
+  }
+  .rp-empty svg { width: 32px; height: 32px; opacity: 0.3; }
+
+  /* Pending Requests */
+  .pending-req {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,215,0,0.25);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .pending-req-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pending-req-pc { font-family: var(--mono); font-size: 12px; color: var(--yellow); }
+  .pending-req-user { font-size: 10px; color: var(--text-secondary); }
+  .pending-req-actions { display: flex; gap: 6px; }
+  .approve-btn, .deny-btn {
+    flex: 1;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-family: var(--mono);
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+    font-weight: 700;
+  }
+  .approve-btn { background: var(--green-dim); border-color: rgba(0,230,118,0.3); color: var(--green); }
+  .approve-btn:hover { background: rgba(0,230,118,0.25); }
+  .deny-btn { background: var(--red-dim); border-color: rgba(255,77,106,0.3); color: var(--red); }
+  .deny-btn:hover { background: rgba(255,77,106,0.25); }
+
+  /* ═══ MODALS ═══ */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s;
+  }
+  .modal-overlay.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    width: 420px;
+    max-width: 95vw;
+    overflow: hidden;
+    animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  }
+  @keyframes slideUp { from { transform: translateY(24px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .modal-head {
+    padding: 20px 24px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .modal-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .modal-icon.connect { background: var(--accent-dim); }
+  .modal-icon.connect svg { color: var(--accent); width: 18px; height: 18px; }
+  .modal-icon.warn { background: var(--yellow-dim); }
+  .modal-icon.warn svg { color: var(--yellow); width: 18px; height: 18px; }
+  .modal-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .modal-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-family: var(--mono); }
+  .modal-close {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    transition: color 0.15s, background 0.15s;
+  }
+  .modal-close:hover { color: var(--text-primary); background: var(--bg-card); }
+  .modal-close svg { width: 18px; height: 18px; }
+
+  .modal-body { padding: 24px; }
+  .info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .info-label { font-size: 11px; color: var(--text-secondary); }
+  .info-val { font-family: var(--mono); font-size: 12px; color: var(--text-primary); font-weight: 700; }
+  .info-val.accent { color: var(--accent); }
+  .info-val.green { color: var(--green); }
+
+  .perm-notice {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--yellow-dim);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px;
+    margin: 14px 0;
+  }
+  .perm-notice svg { width: 16px; height: 16px; color: var(--yellow); flex-shrink: 0; margin-top: 1px; }
+  .perm-notice-text { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+  .perm-notice-text strong { color: var(--yellow); }
+
+  .access-type-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .access-type-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .access-type-btn:hover { border-color: var(--border-light); color: var(--text-primary); }
+  .access-type-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .access-type-icon { font-size: 16px; display: block; margin-bottom: 4px; }
+
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .modal-footer .btn { flex: 1; justify-content: center; padding: 10px; }
+
+  /* Waiting modal */
+  .waiting-animation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0;
+    gap: 16px;
+  }
+  .spinner-ring {
+    width: 56px; height: 56px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .waiting-text { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); text-align: center; line-height: 1.6; }
+  .waiting-text strong { color: var(--accent); display: block; font-size: 14px; margin-bottom: 4px; }
+
+  /* Toast */
+  .toast-wrap {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-primary);
+    min-width: 240px;
+    pointer-events: all;
+    animation: toastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  @keyframes toastIn { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .toast.success { border-color: rgba(0,230,118,0.3); }
+  .toast.error { border-color: rgba(255,77,106,0.3); }
+  .toast.info { border-color: rgba(0,212,255,0.3); }
+  .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .toast.success .toast-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .toast.error .toast-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .toast.info .toast-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+  /* Live session ticker */
+  .live-ticker {
+    position: fixed;
+    bottom: 0;
+    left: var(--sidebar-w);
+    right: 280px;
+    height: 36px;
+    background: var(--bg-sidebar);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+    z-index: 50;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .ticker-item { display: flex; align-items: center; gap: 6px; }
+  .ticker-item .tick-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 4px var(--accent); animation: pulse 1.5s infinite; }
+  .ticker-sep { color: var(--border-light); }
+
+  /* Section tab in right panel */
+  .rp-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .rp-tab {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .rp-tab:hover { color: var(--text-secondary); }
+  .rp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Scrollable grid adjustment for ticker */
+  .main { padding-bottom: 56px; }
+
+  /* Responsive mini adjustments */
+  @media (max-width: 1100px) {
+    .right-panel { width: 240px; }
+    .live-ticker { right: 240px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-text">NEXUS</div>
+      <span class="logo-sub">REMOTE CONTROL HUB</span>
+    </div>
+  </div>
+  <div class="topbar-center">
+    <div class="search-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" placeholder="Search PC number, user, IP..." id="searchInput" oninput="filterPCs()"/>
+    </div>
+    <div class="topbar-stats">
+      <div class="stat-pill online"><div class="stat-dot pulse"></div><span id="stat-online">68</span> Online</div>
+      <div class="stat-pill busy"><div class="stat-dot"></div><span id="stat-busy">18</span> Busy</div>
+      <div class="stat-pill offline"><div class="stat-dot"></div><span id="stat-offline">14</span> Offline</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="admin-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      ADMIN
+    </div>
+    <div class="avatar" title="Abhi — IT Admin">AB</div>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <div class="nav-item active" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      PC Grid
+    </div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      Active Sessions
+      <span class="nav-badge" id="session-badge">3</span>
+    </div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      Permissions
+      <span class="nav-badge red" id="perm-badge">2</span>
+    </div>
+    <div class="nav-section-label">Management</div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Users
+    </div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+      PC Inventory
+    </div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Audit Log
+    </div>
+    <div class="nav-section-label">System</div>
+    <div class="nav-item" onclick="switchNav(this)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07-2.93l-1.41-1.41M4.93 19.07l1.41-1.41M2 12h2m18 0h-2"/></svg>
+      Settings
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="avatar" style="width:28px;height:28px;font-size:10px;">AB</div>
+        <div class="user-card-info">
+          <div class="user-card-name">Abhishek P.</div>
+          <div class="user-card-role">IT ADMIN</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">PC Grid Overview</div>
+        <div class="page-subtitle">// 100 endpoints — Building A · Floor 3</div>
+      </div>
+      <div class="header-actions">
+        <div class="view-toggle">
+          <div class="view-btn active" title="Grid view">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="view-btn" title="List view">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </div>
+        </div>
+        <button class="btn btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Refresh
+        </button>
+        <button class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Scan Network
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-chip active" onclick="filterChip(this,'all')">All 100</div>
+      <div class="filter-chip green" onclick="filterChip(this,'online')">● Online</div>
+      <div class="filter-chip yellow" onclick="filterChip(this,'busy')">● Busy</div>
+      <div class="filter-chip red" onclick="filterChip(this,'offline')">● Offline</div>
+      <div class="filter-sep"></div>
+      <div class="filter-chip" onclick="filterChip(this,'session')">⬤ In Session</div>
+      <div class="filter-chip" style="margin-left:auto;" onclick="filterChip(this,'my')">My Access Only</div>
+    </div>
+
+    <div class="pc-grid" id="pcGrid"></div>
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="rp-tabs">
+      <div class="rp-tab active" onclick="switchRpTab(this,'sessions')">Sessions</div>
+      <div class="rp-tab" onclick="switchRpTab(this,'requests')">Requests <span style="color:var(--red);font-size:9px;">●</span></div>
+      <div class="rp-tab" onclick="switchRpTab(this,'info')">Info</div>
+    </div>
+
+    <!-- Sessions panel -->
+    <div id="rp-sessions">
+      <div class="rp-body">
+        <div class="session-card active">
+          <div class="session-card-top">
+            <span class="session-pc">PC-023</span>
+            <span class="session-duration" id="dur1">00:07:42</span>
+          </div>
+          <div class="session-info">User: <span>Rajesh Kumar</span></div>
+          <div class="session-info">IP: <span>192.168.1.23</span></div>
+          <div class="session-info">Mode: <span style="color:var(--accent);">View + Control</span></div>
+          <button class="disconnect-btn" onclick="disconnectSession('PC-023')">⊘ DISCONNECT</button>
+        </div>
+        <div class="session-card active">
+          <div class="session-card-top">
+            <span class="session-pc">PC-067</span>
+            <span class="session-duration" id="dur2">00:03:15</span>
+          </div>
+          <div class="session-info">User: <span>Priya Shah</span></div>
+          <div class="session-info">IP: <span>192.168.1.67</span></div>
+          <div class="session-info">Mode: <span style="color:var(--green);">View Only</span></div>
+          <button class="disconnect-btn" onclick="disconnectSession('PC-067')">⊘ DISCONNECT</button>
+        </div>
+        <div class="session-card active">
+          <div class="session-card-top">
+            <span class="session-pc">PC-089</span>
+            <span class="session-duration" id="dur3">00:01:03</span>
+          </div>
+          <div class="session-info">User: <span>Vikram Mehta</span></div>
+          <div class="session-info">IP: <span>192.168.1.89</span></div>
+          <div class="session-info">Mode: <span style="color:var(--accent);">View + Control</span></div>
+          <button class="disconnect-btn" onclick="disconnectSession('PC-089')">⊘ DISCONNECT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requests panel -->
+    <div id="rp-requests" style="display:none;">
+      <div class="rp-body">
+        <div class="pending-req" id="req1">
+          <div class="pending-req-top">
+            <span class="pending-req-pc">PC-042 → PC-015</span>
+          </div>
+          <div class="pending-req-user" style="margin-bottom:6px;">Ankit Desai wants access to Meena Joshi's PC</div>
+          <div class="pending-req-user" style="margin-bottom:10px;font-size:9px;color:var(--text-muted);">Requested: 2 min ago · View Only</div>
+          <div class="pending-req-actions">
+            <button class="approve-btn" onclick="approveReq('req1','PC-015')">✓ APPROVE</button>
+            <button class="deny-btn" onclick="denyReq('req1')">✗ DENY</button>
+          </div>
+        </div>
+        <div class="pending-req" id="req2">
+          <div class="pending-req-top">
+            <span class="pending-req-pc">PC-071 → PC-054</span>
+          </div>
+          <div class="pending-req-user" style="margin-bottom:6px;">Sanjay Patel wants access to Ritu Agarwal's PC</div>
+          <div class="pending-req-user" style="margin-bottom:10px;font-size:9px;color:var(--text-muted);">Requested: 5 min ago · View + Control</div>
+          <div class="pending-req-actions">
+            <button class="approve-btn" onclick="approveReq('req2','PC-054')">✓ APPROVE</button>
+            <button class="deny-btn" onclick="denyReq('req2')">✗ DENY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info panel -->
+    <div id="rp-info" style="display:none;">
+      <div class="rp-body">
+        <div class="rp-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+          <div>Click any PC card<br>to see details</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- LIVE TICKER -->
+<div class="live-ticker">
+  <div class="ticker-item"><div class="tick-dot"></div> LIVE</div>
+  <span class="ticker-sep">|</span>
+  <span>3 active sessions</span>
+  <span class="ticker-sep">|</span>
+  <span>Last scan: <span style="color:var(--text-secondary);">2 min ago</span></span>
+  <span class="ticker-sep">|</span>
+  <span>Network: <span style="color:var(--green);">192.168.1.0/24</span></span>
+  <span class="ticker-sep">|</span>
+  <span id="clock" style="margin-left:auto;color:var(--text-secondary);"></span>
+</div>
+
+<!-- CONNECT MODAL -->
+<div class="modal-overlay hidden" id="connectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon connect">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+      </div>
+      <div>
+        <div class="modal-title" id="modalTitle">Connect to PC-050</div>
+        <div class="modal-sub" id="modalSub">User: John Doe · IP: 192.168.1.50</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="info-row">
+        <span class="info-label">PC Number</span>
+        <span class="info-val accent" id="m-pc">PC-050</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-val green" id="m-status">● Online</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Current User</span>
+        <span class="info-val" id="m-user">John Doe</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">IP Address</span>
+        <span class="info-val" id="m-ip">192.168.1.50</span>
+      </div>
+
+      <div class="perm-notice" id="permNotice">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="perm-notice-text">A <strong>permission request</strong> will be sent to the user. Connection starts only after they approve. They can revoke access at any time.</div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-family:var(--mono);">ACCESS TYPE</div>
+      <div class="access-type-group">
+        <div class="access-type-btn active" onclick="selectAccess(this,'view')">
+          <span class="access-type-icon">👁</span>
+          View Only
+        </div>
+        <div class="access-type-btn" onclick="selectAccess(this,'control')">
+          <span class="access-type-icon">🖱</span>
+          View + Control
+        </div>
+        <div class="access-type-btn" onclick="selectAccess(this,'file')">
+          <span class="access-type-icon">📁</span>
+          File Transfer
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="requestAccess()">Send Request →</button>
+    </div>
+  </div>
+</div>
+
+<!-- WAITING MODAL -->
+<div class="modal-overlay hidden" id="waitingModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon warn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      </div>
+      <div>
+        <div class="modal-title">Waiting for Approval</div>
+        <div class="modal-sub" id="waitSub">Request sent to PC-050</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="waiting-animation">
+        <div class="spinner-ring"></div>
+        <div class="waiting-text">
+          <strong id="waitPcName">PC-050</strong>
+          Waiting for the user to approve your<br>remote access request...
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Access Type</span>
+        <span class="info-val accent" id="waitAccessType">View Only</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="cancelRequest()">Cancel Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ─── Data ───
+const users = ["Amit Shah","Priya Patel","Raj Kumar","Meena Joshi","Vikram M.","Sunita Das","Arjun Nair","Kavya Reddy","Suresh Babu","Deepa Iyer","Ankit D.","Rohan Verma","Sneha Singh","Kiran Rao","Mohit Gupta","Pooja Sharma","Rahul Jain","Nisha Kumar","Vijay Malhotra","Lakshmi N.","Arun Sinha","Divya Tiwari","Sameer Ali","Rekha Pillai","Gaurav Mishra","Anjali Seth","Naresh Khanna","Geeta Bose","Sanjay Patel","Ritu Agarwal","Praveen Nair","Usha Menon","Manish Dubey","Swathi Rao","Abhijit Das","Leela Krishnan","Ajay Tomar","Manju Suri","Nitin Pawar","Smita Gokhale","Rajesh Kumar","Anand Gupta","Chitra Murali","Dinesh Bhatt","Falguni Desai","Girish Naik","Harsha Rao","Ila Mehta","Jayesh Shah","Kalpana Nair","Lalith Kumar","Mamatha Reddy","Narendra Joshi","Ojas Patel","Pradeep Singh","Qadir Ahmed","Radhika Iyer","Sunil Verma","Tara Menon","Umesh Shetty","Vandana Gupta","Wasim Ali","Ximena Fernandez","Yash Malhotra","Zara Khan","Abhay Tiwari","Bhavna Rao","Chirag Patel","Disha Nair","Eshan Gupta","Farida Shaikh","Ganesh Pillai","Hema Krishnan","Ishaan Verma","Jasmine Kaur","Karan Mehta","Lalitha Nair","Manoj Sharma","Nandita Das","Om Prakash","Pallavi Singh","Qureshi Javid","Ramya Krishnan","Sahil Gupta","Teena Mathew","Uday Kumar","Varsha Rao","Waqar Hussain","Xavier D'Souza","Yogesh Patil","Zahida Bano","Aditya Joshi","Bharati Kulkarni","Chiranjeevi R.","Dhruv Patel","Ekta Sharma","Farhan Malik","Gita Reddy","Harsh Vardhan","Indira Nair","Jatin Kapoor"];
+
+const sessionPCs = new Set([23, 67, 89]);
+const busyPCs = [5,12,18,25,31,37,43,49,55,61,68,74,80,85,91,96,3,27];
+
+function getStatus(n) {
+  if (sessionPCs.has(n)) return 'session';
+  if (busyPCs.includes(n)) return 'busy';
+  if ([7,14,22,33,39,47,58,64,72,79,86,92,98,4].includes(n)) return 'offline';
+  return 'online';
+}
+
+// ─── Render PC Grid ───
+function buildGrid(filter = 'all', search = '') {
+  const grid = document.getElementById('pcGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 100; i++) {
+    const status = getStatus(i);
+    const user = users[i-1] || `User ${i}`;
+    const ip = `192.168.1.${i < 10 ? '0'+i : i}`;
+    const pcLabel = `PC-${String(i).padStart(3,'0')}`;
+
+    if (filter !== 'all' && status !== filter && !(filter === 'my' && sessionPCs.has(i))) continue;
+    if (search && !pcLabel.toLowerCase().includes(search.toLowerCase()) && !user.toLowerCase().includes(search.toLowerCase())) continue;
+
+    const card = document.createElement('div');
+    card.className = `pc-card ${status}`;
+    card.dataset.pc = i;
+    card.dataset.user = user;
+    card.dataset.ip = ip;
+    card.dataset.status = status;
+
+    const tagLabel = status === 'session' ? 'IN SESSION' : status === 'busy' ? 'BUSY' : status === 'offline' ? 'OFFLINE' : 'ONLINE';
+
+    card.innerHTML = `
+      <div class="pc-status-row">
+        <div class="pc-status-dot ${status}"></div>
+        <svg class="pc-actions-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+      <div class="pc-icon">
+        <div class="pc-screen">
+          <div class="pc-screen-glow"></div>
+          <div class="pc-screen-lines">
+            <div class="pc-screen-line"></div>
+            <div class="pc-screen-line"></div>
+            <div class="pc-screen-line"></div>
+          </div>
+        </div>
+        <div class="pc-stand"></div>
+      </div>
+      <div class="pc-number">${pcLabel}</div>
+      <div class="pc-user">${user}</div>
+      <div class="pc-tag ${status === 'session' ? 'session' : status}">${tagLabel}</div>
+    `;
+
+    card.addEventListener('click', () => openConnectModal(i, user, ip, status));
+    grid.appendChild(card);
+  }
+}
+
+let currentFilter = 'all';
+function filterChip(el, f) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active','green','yellow','red'));
+  el.classList.add('active');
+  if (f === 'online') el.classList.add('green');
+  if (f === 'busy') el.classList.add('yellow');
+  if (f === 'offline') el.classList.add('red');
+  currentFilter = f;
+  buildGrid(f, document.getElementById('searchInput').value);
+}
+function filterPCs() {
+  buildGrid(currentFilter, document.getElementById('searchInput').value);
+}
+
+// ─── Modal ───
+let currentPCNum = null;
+let selectedAccess = 'view';
+
+function openConnectModal(n, user, ip, status) {
+  if (status === 'offline') { showToast('PC is offline — cannot connect', 'error'); return; }
+  currentPCNum = n;
+  const pcLabel = `PC-${String(n).padStart(3,'0')}`;
+  document.getElementById('modalTitle').textContent = `Connect to ${pcLabel}`;
+  document.getElementById('modalSub').textContent = `User: ${user} · IP: ${ip}`;
+  document.getElementById('m-pc').textContent = pcLabel;
+  document.getElementById('m-status').textContent = status === 'session' ? '⬤ In Session' : '● Online';
+  document.getElementById('m-status').style.color = status === 'session' ? 'var(--accent)' : 'var(--green)';
+  document.getElementById('m-user').textContent = user;
+  document.getElementById('m-ip').textContent = ip;
+  document.getElementById('permNotice').style.display = status === 'session' ? 'none' : 'flex';
+  selectedAccess = 'view';
+  document.querySelectorAll('.access-type-btn').forEach((b,i) => b.classList.toggle('active', i === 0));
+  document.getElementById('connectModal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('connectModal').classList.add('hidden');
+  document.getElementById('waitingModal').classList.add('hidden');
+}
+
+function selectAccess(el, type) {
+  selectedAccess = type;
+  document.querySelectorAll('.access-type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function requestAccess() {
+  const pcLabel = `PC-${String(currentPCNum).padStart(3,'0')}`;
+  const accessLabel = selectedAccess === 'view' ? 'View Only' : selectedAccess === 'control' ? 'View + Control' : 'File Transfer';
+  document.getElementById('connectModal').classList.add('hidden');
+
+  // Admin gets direct access, others wait for permission
+  const isAdmin = true; // admin for demo
+  if (isAdmin) {
+    document.getElementById('waitSub').textContent = `Connecting to ${pcLabel}...`;
+    document.getElementById('waitPcName').textContent = pcLabel;
+    document.getElementById('waitAccessType').textContent = accessLabel;
+    document.getElementById('waitingModal').classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('waitingModal').classList.add('hidden');
+      sessionPCs.add(currentPCNum);
+      buildGrid(currentFilter, document.getElementById('searchInput').value);
+      showToast(`Connected to ${pcLabel} · ${accessLabel}`, 'success');
+      updateStats();
+    }, 1800);
+  } else {
+    // non-admin flow
+    document.getElementById('waitSub').textContent = `Request sent to ${pcLabel}`;
+    document.getElementById('waitPcName').textContent = pcLabel;
+    document.getElementById('waitAccessType').textContent = accessLabel;
+    document.getElementById('waitingModal').classList.remove('hidden');
+  }
+}
+
+function cancelRequest() {
+  document.getElementById('waitingModal').classList.add('hidden');
+  showToast('Access request cancelled', 'info');
+}
+
+function disconnectSession(pcLabel) {
+  const n = parseInt(pcLabel.split('-')[1]);
+  sessionPCs.delete(n);
+  buildGrid(currentFilter, document.getElementById('searchInput').value);
+  showToast(`Disconnected from ${pcLabel}`, 'info');
+  updateStats();
+}
+
+// ─── Right Panel Tabs ───
+function switchRpTab(el, tab) {
+  document.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rp-sessions').style.display = tab === 'sessions' ? '' : 'none';
+  document.getElementById('rp-requests').style.display = tab === 'requests' ? '' : 'none';
+  document.getElementById('rp-info').style.display = tab === 'info' ? '' : 'none';
+}
+
+function approveReq(id, pc) {
+  document.getElementById(id).remove();
+  showToast(`Access to ${pc} approved ✓`, 'success');
+  updatePermBadge();
+}
+function denyReq(id) {
+  document.getElementById(id).remove();
+  showToast('Access request denied', 'error');
+  updatePermBadge();
+}
+function updatePermBadge() {
+  const count = document.querySelectorAll('#rp-requests .pending-req').length;
+  document.getElementById('perm-badge').textContent = count;
+  if (!count) document.getElementById('perm-badge').style.display = 'none';
+}
+
+// ─── Nav ───
+function switchNav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── Toast ───
+function showToast(msg, type = 'info') {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<div class="toast-dot"></div><span>${msg}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ─── Stats ───
+function updateStats() {
+  let on = 0, busy = 0, off = 0;
+  for (let i = 1; i <= 100; i++) {
+    const s = getStatus(i);
+    if (s === 'session' || s === 'online') on++;
+    else if (s === 'busy') busy++;
+    else off++;
+  }
+  document.getElementById('stat-online').textContent = on;
+  document.getElementById('stat-busy').textContent = busy;
+  document.getElementById('stat-offline').textContent = off;
+  document.getElementById('session-badge').textContent = sessionPCs.size;
+}
+
+// ─── Clock & Session Timers ───
+const sessionStarts = { dur1: Date.now() - 462000, dur2: Date.now() - 195000, dur3: Date.now() - 63000 };
+function pad(n) { return String(n).padStart(2,'0'); }
+function tick() {
+  const now = Date.now();
+  for (const [id, start] of Object.entries(sessionStarts)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const s = Math.floor((now - start) / 1000);
+    el.textContent = `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+  }
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ─── Init ───
+buildGrid();
+updateStats();
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
